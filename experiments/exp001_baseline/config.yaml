@@ -1,0 +1,66 @@
+# exp001_baseline configuration
+experiment_name: baseline_vs_improved
+description: EEZO現状と施策投入後の比較シミュレーション
+
+# 目標設定
+targets:
+  annual_sales: 10000000  # 10百万円
+  gross_profit: 1500000   # 粗利150万円
+  margin_rate: 0.15
+
+# シナリオ定義
+scenarios:
+  baseline:
+    name: 現状（改善前）
+    interventions: []
+    
+  photo_only:
+    name: 商品写真強化のみ
+    interventions:
+      - product_photo_pro
+      
+  photo_review:
+    name: 写真+レビュー
+    interventions:
+      - product_photo_pro
+      - review_system
+      
+  full_package:
+    name: フル施策
+    interventions:
+      - product_photo_pro
+      - review_system
+      - insert_card_unboxing
+      - ux_shopify_migration
+      - certification_display
+      - producer_story
+
+# トラフィック設定
+traffic:
+  email:
+    annual_clicks: 400000
+    cvr_baseline: 0.0004
+  o2o:
+    annual_visitors: 50000
+    cvr_baseline: 0.02
+  sns:
+    annual_clicks: 100000
+    cvr_baseline: 0.005
+
+# 価格帯設定
+pricing:
+  band_a:
+    price: 5000
+    procurement_limit: 4250
+    margin_per_unit: 750
+  band_b:
+    price: 10000
+    procurement_limit: 8500
+    margin_per_unit: 1500
+  mix_ratio: 0.5  # A:B = 50:50
+
+# LTVパラメータ
+ltv:
+  repeat_rate_baseline: 0.10
+  repeat_rate_with_card: 0.20
+  repeat_rate_with_unboxing: 0.30

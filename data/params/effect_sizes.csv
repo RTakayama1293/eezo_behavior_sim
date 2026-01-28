@@ -1,0 +1,11 @@
+factor,effect_size_r,effect_type,source,sample_size,note
+trust_to_purchase_intent,0.67,correlation,Handoyo 2024,32658,最強の予測因子
+package_aesthetics_to_purchase_intent,0.65,correlation,Gunaratne 2019,multi,信頼に次ぐ効果
+review_valence_to_purchase_intent,0.563,correlation,Ismagilova 2020,69006,量より質が重要
+product_photo_to_sales,0.125,direct_effect,Deliveroo Field,-,+10-15%の中央値
+origin_story_to_quality_perception,0.30,correlation,Peterson 1995,1520,品質知覚経由
+origin_story_to_purchase_intent,0.19,correlation,Peterson 1995,1520,直接効果は小さい
+unboxing_positive_to_wtp,0.57,proportion,Joutsela 2016,-,57%でWTP上昇
+unboxing_negative_to_wtp,-0.14,proportion,Joutsela 2016,-,14%でWTP低下
+purchase_intent_to_actual_purchase,0.51,conversion,Meta-analysis,23947,約半分が転換
+wtp_stated_to_revealed,0.55,discount,Multiple,-,表明値の55%が顕示

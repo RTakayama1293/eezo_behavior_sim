@@ -1,0 +1,8 @@
+intervention,cost_initial,cost_per_unit,expected_effect_metric,expected_effect_value,effect_confidence,note
+insert_card,0,65,repeat_rate_delta,0.075,medium,50-80円/枚の中央値
+insert_card_unboxing,50000,80,wtp_multiplier,1.20,medium,開封体験込み・成功時
+product_photo_pro,400000,0,cvr_multiplier,1.125,high,プロ撮影・断面図含む
+review_system,100000,0,purchase_intent_multiplier,1.30,high,Shopifyアプリ等
+ux_shopify_migration,1500000,0,cart_recovery_rate,0.25,high,離脱70%の25%回復
+certification_display,50000,0,trust_signal,1.10,medium,HACCP等の可視化
+producer_story,200000,0,quality_perception_multiplier,1.15,medium,顔写真・動画
