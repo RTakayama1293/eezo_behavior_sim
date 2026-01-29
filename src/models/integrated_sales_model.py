@@ -569,42 +569,68 @@ class FiveYearPlanModel:
 
 def run_integrated_simulation():
     """
-    統合シミュレーションを実行（反復最適化）
+    統合シミュレーションを実行（年間目標ピッタリに調整）
     """
     print("=" * 60)
-    print("EEZO 統合販売シミュレーション（反復最適化版）")
+    print("EEZO 統合販売シミュレーション（目標調整版）")
     print("=" * 60)
 
     # モデル初期化
     model = IntegratedSalesModel()
+    annual_target = 10_000_000
 
-    # 四半期目標
-    quarterly_targets = [
-        QuarterlyTarget(quarter=2, target_revenue=1_000_000, target_customers=133),
-        QuarterlyTarget(quarter=3, target_revenue=3_800_000, target_customers=507),
-        QuarterlyTarget(quarter=4, target_revenue=5_200_000, target_customers=693),
-    ]
-
-    print("\n【Step 1】Q3のO2O必要量を仮算出")
+    print("\n【Step 1】オンラインのみの年間売上を予測")
     print("-" * 40)
 
     # Step 1: O2Oなしでオンライン予測を計算
-    online_projections_initial = model.project_online_continuous_growth(o2o_customers_q3=0)
+    online_projections_no_o2o = model.project_online_continuous_growth(o2o_customers_q3=0)
+    online_only_revenue = sum(p.online_revenue for p in online_projections_no_o2o)
 
-    # Q3の乖離からO2O必要量を算出
-    gaps_initial = model.calculate_quarterly_gap(online_projections_initial, quarterly_targets)
-    q3_gap = gaps_initial[3]
+    print(f"  オンラインのみ年間売上: ¥{online_only_revenue:,}")
+    print(f"  年間目標: ¥{annual_target:,}")
+    print(f"  乖離: ¥{annual_target - online_only_revenue:,}")
 
-    o2o_customers_needed = q3_gap['gap_customers'] if q3_gap['needs_o2o'] else 0
-    print(f"  Q3オンライン売上: ¥{q3_gap['online_revenue']:,}")
-    print(f"  Q3目標: ¥{q3_gap['target_revenue']:,}")
-    print(f"  乖離: ¥{q3_gap['gap_revenue']:,}")
-    print(f"  → O2O必要顧客数: {o2o_customers_needed}人")
-
-    print("\n【Step 2】O2O顧客のQ4リピートを反映して再計算")
+    print("\n【Step 2】O2O顧客数を反復計算で最適化")
     print("-" * 40)
 
-    # Step 2: O2O顧客数を反映してオンライン予測を再計算
+    # Step 2: 反復計算でO2O顧客数を最適化
+    # O2O顧客はQ3で獲得し、Q4でリピートも発生するため、
+    # 単純な乖離÷単価ではなく、リピート効果も考慮して調整
+
+    best_o2o = 0
+    best_gap = float('inf')
+
+    for o2o_test in range(0, 500, 10):  # 0〜500人を10人刻みでテスト
+        projections = model.project_online_continuous_growth(o2o_customers_q3=o2o_test)
+        online_revenue = sum(p.online_revenue for p in projections)
+        o2o_revenue = o2o_test * model.avg_unit_price
+        total_revenue = online_revenue + o2o_revenue
+        gap = abs(total_revenue - annual_target)
+
+        if gap < best_gap:
+            best_gap = gap
+            best_o2o = o2o_test
+
+    # 微調整（1人刻み）
+    for o2o_test in range(max(0, best_o2o - 15), best_o2o + 15):
+        projections = model.project_online_continuous_growth(o2o_customers_q3=o2o_test)
+        online_revenue = sum(p.online_revenue for p in projections)
+        o2o_revenue = o2o_test * model.avg_unit_price
+        total_revenue = online_revenue + o2o_revenue
+        gap = abs(total_revenue - annual_target)
+
+        if gap < best_gap:
+            best_gap = gap
+            best_o2o = o2o_test
+
+    o2o_customers_needed = best_o2o
+    print(f"  最適O2O顧客数: {o2o_customers_needed}人")
+    print(f"  目標との乖離: ¥{best_gap:,}")
+
+    print("\n【Step 3】最終予測（O2Oリピート反映）")
+    print("-" * 40)
+
+    # Step 3: 最適化されたO2O顧客数で再計算
     online_projections = model.project_online_continuous_growth(o2o_customers_q3=o2o_customers_needed)
 
     print(f"{'月':>3} {'メルマガ':>8} {'SNS':>8} {'リピート':>8} {'合計':>8} {'売上':>12} {'累計':>12}")
@@ -614,34 +640,39 @@ def run_integrated_simulation():
               f"{p.repeat_customers:>8} {p.total_online_customers:>8} "
               f"¥{p.online_revenue:>10,} ¥{p.cumulative_revenue:>10,}")
 
-    # 2. 四半期目標との乖離計算（O2O反映後）
-    print("\n【3】四半期目標との乖離（O2Oリピート反映後）")
+    # 四半期目標との比較（参考）
+    quarterly_targets = [
+        QuarterlyTarget(quarter=2, target_revenue=1_000_000, target_customers=133),
+        QuarterlyTarget(quarter=3, target_revenue=3_800_000, target_customers=507),
+        QuarterlyTarget(quarter=4, target_revenue=5_200_000, target_customers=693),
+    ]
+
+    print("\n【4】四半期別売上（O2O含む）")
     print("-" * 40)
 
     gaps = model.calculate_quarterly_gap(online_projections, quarterly_targets)
 
-    for q, gap in gaps.items():
-        print(f"\nQ{q}:")
-        print(f"  目標売上: ¥{gap['target_revenue']:,}")
-        print(f"  オンライン売上: ¥{gap['online_revenue']:,}")
-        print(f"  乖離: ¥{gap['gap_revenue']:,}")
-        if gap['needs_o2o']:
-            print(f"  → O2Oで埋める必要顧客数: {gap['gap_customers']}人")
+    # Q3にO2O売上を加算
+    o2o_revenue = o2o_customers_needed * model.avg_unit_price
 
-    # 4. O2O必要量の逆算（Q3のみ - 最終確認）
-    print("\n【4】O2O必要量の逆算（Q3）- 最終確認")
+    for q, gap in gaps.items():
+        actual_revenue = gap['online_revenue']
+        if q == 3:
+            actual_revenue += o2o_revenue
+        print(f"  Q{q}: オンライン ¥{gap['online_revenue']:,}" +
+              (f" + O2O ¥{o2o_revenue:,} = ¥{actual_revenue:,}" if q == 3 else f" = ¥{actual_revenue:,}"))
+
+    # O2O必要量の逆算
+    print("\n【5】O2O必要量")
     print("-" * 40)
 
-    # Q3の乖離は Step 1で計算済みの値を使用
     o2o_req = model.calculate_o2o_requirements(o2o_customers_needed)
     if o2o_customers_needed > 0:
-
         print(f"  必要顧客数: {o2o_req.customers_needed}人")
         print(f"  必要接点数: {o2o_req.contact_points_needed:,}人")
         print(f"  週末1日あたり必要便数: {o2o_req.voyages_per_weekend_day:.1f}便")
         print(f"  （スキャン率 {o2o_req.scan_rate*100:.0f}%, CVR {o2o_req.conversion_rate*100:.0f}%）")
 
-        # 実現可能性の評価
         if o2o_req.voyages_per_weekend_day <= 5:
             print("  ✓ 現実的な便数（5便/日以下）")
         elif o2o_req.voyages_per_weekend_day <= 8:
@@ -649,8 +680,8 @@ def run_integrated_simulation():
         else:
             print("  ✗ 非現実的な便数（オンライン強化が必要）")
 
-    # 5. 全体整合性の検証
-    print("\n【5】全体整合性の検証")
+    # 全体整合性の検証
+    print("\n【6】全体整合性の検証")
     print("-" * 40)
 
     consistency = model.verify_consistency(online_projections, o2o_customers_needed)
@@ -658,29 +689,22 @@ def run_integrated_simulation():
     print(f"  総売上: ¥{consistency['total_revenue']:,}")
     print(f"    - オンライン: ¥{consistency['online_revenue']:,}")
     print(f"    - O2O: ¥{consistency['o2o_revenue']:,}")
+    print(f"  目標: ¥{annual_target:,}")
 
-    # 目標との差分を分かりやすく表示
-    if consistency['gap_from_target'] >= 0:
-        print(f"  目標超過: +¥{consistency['gap_from_target']:,} (+{consistency['gap_percentage']:.1f}%)")
+    gap_pct = consistency['gap_percentage']
+    if abs(gap_pct) < 1:
+        print(f"  ✓ 目標とほぼ一致（乖離 {gap_pct:+.1f}%）")
+    elif gap_pct > 0:
+        print(f"  目標超過: +¥{consistency['gap_from_target']:,} (+{gap_pct:.1f}%)")
     else:
-        print(f"  目標不足: ¥{consistency['gap_from_target']:,} ({consistency['gap_percentage']:.1f}%)")
+        print(f"  目標不足: ¥{consistency['gap_from_target']:,} ({gap_pct:.1f}%)")
 
     print(f"  新規顧客数: {consistency['total_new_customers']}人")
     print(f"  リピート注文数: {consistency['total_repeat_orders']}人")
     print(f"  総注文数: {consistency['total_orders']}人")
     print(f"  暗黙の平均単価: ¥{consistency['checks']['implied_avg_price']:,.0f}")
     print(f"  暗黙のリピート率: {consistency['checks']['implied_repeat_rate']*100:.1f}%")
-    print(f"  粗利: ¥{consistency['checks']['gross_profit']:,}")
-
-    # 判定
-    if consistency['checks']['revenue_exceeds_target'] and consistency['checks']['revenue_within_tolerance']:
-        print("  ✓ 目標達成可能な計画（±10%以内）")
-    elif consistency['checks']['revenue_exceeds_target']:
-        print("  ✓ 目標超過達成可能（余裕あり）")
-    elif abs(consistency['gap_percentage']) < 10:
-        print("  △ 目標にやや不足（追加施策要検討）")
-    else:
-        print("  ✗ 大幅な調整が必要")
+    print(f"  粗利: ¥{consistency['checks']['gross_profit']:,.0f}")
 
     # 6. 5か年計画（BtoB含む）
     print("\n" + "=" * 60)
@@ -731,7 +755,7 @@ def run_integrated_simulation():
     return {
         "online_projections": online_projections,
         "gaps": gaps,
-        "o2o_requirements": o2o_req if q3_gap['needs_o2o'] else None,
+        "o2o_requirements": o2o_req if o2o_customers_needed > 0 else None,
         "consistency": consistency,
         "five_year_plans": five_year_plans,
         "btob_plans": btob_plans,
